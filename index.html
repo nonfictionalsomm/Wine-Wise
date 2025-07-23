@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wine Wise: Descriptor Blitz</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation; /* Prevents double-tap zoom on mobile */
+        }
+        /* Animation for correct answer "pop" */
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .pop-animation {
+            animation: pop 0.2s ease-in-out;
+        }
+
+        /* Animation for incorrect answer "shake" */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        .shake-animation {
+            animation: shake 0.3s ease-in-out;
+        }
+
+        /* Base styles for answer items */
+        .answer-item {
+            transition: all 0.3s ease-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen">
+
+    <div id="app-container" class="w-full max-w-md mx-auto p-4">
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="text-center">
+            <h1 class="text-4xl font-bold text-red-200 mb-2">Wine Wise</h1>
+            <h2 class="text-2xl font-semibold text-gray-300 mb-8">Descriptor Blitz</h2>
+            <p class="text-gray-400 mb-8">How many descriptors can you name in 30 seconds? Select a category to begin.</p>
+            <div id="category-selection" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- Category buttons will be injected here by JS -->
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="hidden flex flex-col h-[80vh]">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <div class="text-sm text-red-300">SCORE</div>
+                    <div id="score" class="text-2xl font-bold">0</div>
+                </div>
+                <div>
+                    <div class="text-sm text-red-300">TIME</div>
+                    <div id="timer" class="text-2xl font-bold">30</div>
+                </div>
+            </div>
+            <h3 id="category-prompt" class="text-xl font-semibold text-center mb-4 bg-gray-800 p-3 rounded-lg"></h3>
+            
+            <div id="correct-answers-container" class="flex-grow bg-gray-800/50 rounded-lg p-4 overflow-y-auto flex flex-wrap content-start gap-2">
+                <!-- Correct answers will appear here -->
+            </div>
+            
+            <form id="answer-form" class="mt-4">
+                <input type="text" id="answer-input" placeholder="Type descriptor..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                       class="w-full p-4 bg-gray-700 border-2 border-gray-600 rounded-lg text-lg text-white placeholder-gray-400 focus:outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400">
+            </form>
+        </div>
+
+        <!-- Results Screen -->
+        <div id="results-screen" class="hidden text-center">
+            <h2 class="text-3xl font-bold mb-2">Time's Up!</h2>
+            <p class="text-lg mb-4">Your final score is <span id="final-score" class="text-2xl font-bold text-red-300">0</span></p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                <div class="bg-gray-800 p-4 rounded-lg">
+                    <h3 class="font-bold text-lg mb-2 text-green-400">You Nailed It! (<span id="correct-count"></span>)</h3>
+                    <ul id="correct-list" class="list-disc list-inside text-gray-300"></ul>
+                </div>
+                <div class="bg-gray-800 p-4 rounded-lg">
+                    <h3 class="font-bold text-lg mb-2 text-yellow-400">Don't Forget These! (<span id="missed-count"></span>)</h3>
+                    <ul id="missed-list" class="list-disc list-inside text-gray-300"></ul>
+                </div>
+            </div>
+
+            <div class="mt-8 flex flex-col sm:flex-row justify-center gap-4">
+                <button id="retry-button" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition-colors w-full sm:w-auto">Retry This Category</button>
+                <button id="play-again-button" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-colors w-full sm:w-auto">Play Another</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- DATABASE ---
+        // Parsed from the user's provided PDF document.
+        const wineDatabase = {
+            "FRUIT-WHITE WINE": {
+                "Citrus": ["kaffir lime", "lime", "lime zest", "eureka lemon", "lemon zest", "grapefruit", "grapefruit pith", "yuzu", "kumquat", "orange", "meyer lemon", "tangerine", "clementine", "marmalade"],
+                "Orchard": ["green apple", "asian pear", "pear", "quince", "yellow apple", "red apple", "bruised apple"],
+                "Stone": ["nectarine", "apricot", "peach", "mirabelle plum", "dried apricot"],
+                "Tropical": ["passion fruit", "pineapple", "kiwi", "guava", "lychee", "mango", "persimmon", "melon", "cantaloupe", "charentais", "honeydew", "papaya", "banana", "fruit cup", "fruit cocktail"]
+            },
+            "FRUIT-RED WINE": {
+                "Red Fruits": ["cranberry", "lingonberry", "red currant", "sour cherry", "pomegranate", "raspberry", "strawberry", "red plum", "cherry", "red cherry", "sweet cherry", "kirsch", "cherry liqueur"],
+                "Black Fruits": ["damson plum", "black currant", "cassis", "blackberry", "boysenberry", "black cherry", "mulberry", "bilberry", "huckleberry"],
+                "Blue & Purple Fruits": ["blueberry", "marionberry", "plum", "purple plum"],
+                "Dried Fruit": ["tamarind", "raisin", "fig", "prune", "date"]
+            },
+            "FLORAL & TEA": {
+                "Flowers": ["dandelion", "citrus blossom", "apple blossom", "acacia", "chamomile", "honeysuckle", "lilac", "rose", "violet", "jasmine", "geranium", "potpourri", "dried flowers", "hand soap", "citronella"],
+                "Teas & Tisanes": ["hibiscus", "yerba mate", "rooibos", "black tea", "oolong", "matcha"],
+                "Coffee & Other": ["coffee", "bergamot", "bergamot oil", "chai"]
+            },
+            "SPICE & HERB": {
+                "Soft Herbs (Leafy)": ["cut grass", "parsley", "chervil", "cilantro", "chive", "tarragon", "lemongrass", "verbena"],
+                "Hard Herbs (Resinous)": ["mint", "menthol", "eucalyptus", "bay laurel", "sage", "rosemary", "juniper", "garrigue", "provençal herbs"],
+                "Spices": ["black pepper", "white pepper", "peppercorn", "vanilla", "cinnamon", "clove", "nutmeg", "allspice", "licorice", "anise", "fennel", "dill", "ginger", "saffron", "cardamom", "coriander", "cumin", "curry", "fenugreek", "wasabi", "peppercress", "quinine"]
+            },
+            "VEGETAL": {
+                "Greens": ["salad greens", "arugula", "rhubarb", "bell pepper", "jalapeno", "chipotle", "asparagus", "olive", "green olive", "black olive"],
+                "Other Vegetal": ["tomato", "tomato leaf", "beet", "radicchio", "cabbage", "onion"]
+            },
+            "SAVORY & AGED": {
+                "Animal": ["lanolin", "wool", "leather", "saddle leather", "barn", "stable", "game", "charcuterie", "pastrami", "bacon", "barbecue", "grilled meat"],
+                "Aged / Tertiary": ["tobacco", "cigar box", "forest floor", "underbrush", "soy", "balsamic", "hoisin", "sweet and sour", "chutney", "plum sauce"]
+            },
+            "NUTS, DAIRY, & BREAD": {
+                "Nuts": ["almond", "walnut", "hazelnut", "pecan", "marzipan", "coconut", "cashew", "macadamia", "pistachio"],
+                "Dairy": ["butter", "cream", "yogurt", "crème fraiche"],
+                "Confections": ["marshmallow", "meringue", "panna cotta"],
+                "Cheese": ["parmesan", "rind"],
+                "Bread & Grains": ["yeast", "dough", "brioche", "pie crust", "graham cracker", "lager", "peanut shell", "oatmeal"]
+            },
+            "MINERAL & CHEMICAL": {
+                "Earth & Rocks": ["wet stone", "crushed rock", "gravel", "limestone", "sea shell", "chalk", "slate", "flint", "gunmetal", "volcanic", "iron", "blood", "clay", "baked earth", "concrete", "petrichor", "dust"],
+                "Industrial & Chemical": ["petrol", "kerosene", "gas", "tar", "graphite", "pencil lead", "rubber", "latex", "iodine", "medicinal", "band-aid", "paraffin", "candle wax"]
+            },
+             "WINEMAKING": {
+                "Oak Influence": ["oak", "american oak", "french oak", "coconut", "dill", "vanilla", "brown sugar", "cedar", "cigar box", "baking spices", "clove", "cinnamon", "sandalwood", "nutmeg", "dried herbs"],
+                "Sweeteners": ["caramel", "butterscotch", "honey", "chocolate", "mocha"],
+                "Process-Specific": ["bubblegum", "cotton candy", "volatile acidity", "cork taint", "tca"]
+            }
+        };
+
+        // --- DOM Elements ---
+        const startScreen = document.getElementById('start-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const resultsScreen = document.getElementById('results-screen');
+        const categorySelectionContainer = document.getElementById('category-selection');
+        
+        const scoreEl = document.getElementById('score');
+        const timerEl = document.getElementById('timer');
+        const categoryPromptEl = document.getElementById('category-prompt');
+        const correctAnswersContainer = document.getElementById('correct-answers-container');
+        const answerForm = document.getElementById('answer-form');
+        const answerInput = document.getElementById('answer-input');
+
+        const finalScoreEl = document.getElementById('final-score');
+        const correctListEl = document.getElementById('correct-list');
+        const missedListEl = document.getElementById('missed-list');
+        const correctCountEl = document.getElementById('correct-count');
+        const missedCountEl = document.getElementById('missed-count');
+        const retryButton = document.getElementById('retry-button');
+        const playAgainButton = document.getElementById('play-again-button');
+
+        // --- Game State ---
+        let score = 0;
+        let timeLeft = 30;
+        let timerInterval;
+        let currentCategoryName = '';
+        let currentDescriptors = [];
+        let enteredAnswers = new Set();
+        let gameActive = false;
+
+        // --- Game Logic ---
+
+        function initializeApp() {
+            // Flatten the database into a list of sub-categories for selection
+            const allSubCategories = [];
+            for (const mainCategory in wineDatabase) {
+                for (const subCategory in wineDatabase[mainCategory]) {
+                    allSubCategories.push({
+                        main: mainCategory,
+                        sub: subCategory,
+                        descriptors: wineDatabase[mainCategory][subCategory]
+                    });
+                }
+            }
+            
+            // Create buttons for each sub-category
+            allSubCategories.forEach(cat => {
+                const button = document.createElement('button');
+                button.className = "bg-gray-700 hover:bg-red-800/80 text-white font-semibold py-4 px-4 rounded-lg transition-colors duration-200 text-left";
+                button.innerHTML = `<span class="block text-sm text-red-300">${cat.main}</span><span class="block text-lg">${cat.sub}</span>`;
+                button.onclick = () => startGame(cat.sub, cat.descriptors);
+                categorySelectionContainer.appendChild(button);
+            });
+        }
+        
+        function startGame(categoryName, descriptors) {
+            // Reset state
+            score = 0;
+            timeLeft = 30;
+            currentCategoryName = categoryName;
+            currentDescriptors = descriptors;
+            enteredAnswers.clear();
+            gameActive = true;
+
+            // Update UI
+            scoreEl.textContent = score;
+            timerEl.textContent = timeLeft;
+            categoryPromptEl.textContent = categoryName;
+            correctAnswersContainer.innerHTML = '';
+            answerInput.value = '';
+
+            // Switch screens
+            startScreen.classList.add('hidden');
+            resultsScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            
+            answerInput.focus();
+
+            // Start timer
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        function updateTimer() {
+            timeLeft--;
+            timerEl.textContent = timeLeft;
+            if (timeLeft <= 0) {
+                endGame();
+            }
+        }
+
+        function endGame() {
+            clearInterval(timerInterval);
+            gameActive = false;
+
+            // Prepare results
+            finalScoreEl.textContent = score;
+            correctListEl.innerHTML = '';
+            missedListEl.innerHTML = '';
+
+            const missedDescriptors = currentDescriptors.filter(d => !enteredAnswers.has(d));
+            
+            correctCountEl.textContent = enteredAnswers.size;
+            missedCountEl.textContent = missedDescriptors.length;
+
+            enteredAnswers.forEach(answer => {
+                const li = document.createElement('li');
+                li.textContent = answer;
+                correctListEl.appendChild(li);
+            });
+
+            missedDescriptors.forEach(descriptor => {
+                const li = document.createElement('li');
+                li.textContent = descriptor;
+                missedListEl.appendChild(li);
+            });
+
+            // Switch screens
+            gameScreen.classList.add('hidden');
+            resultsScreen.classList.remove('hidden');
+        }
+
+        function handleAnswerSubmit(e) {
+            e.preventDefault();
+            if (!gameActive) return;
+
+            const rawAnswer = answerInput.value.trim().toLowerCase();
+            if (!rawAnswer) return;
+
+            answerInput.value = ''; // Clear input immediately
+
+            // Check if answer is correct and not already entered
+            if (currentDescriptors.includes(rawAnswer) && !enteredAnswers.has(rawAnswer)) {
+                // CORRECT
+                score++;
+                enteredAnswers.add(rawAnswer);
+                scoreEl.textContent = score;
+
+                // Create and animate the correct answer element
+                const answerEl = document.createElement('div');
+                answerEl.textContent = rawAnswer;
+                answerEl.className = 'answer-item bg-green-500/80 text-white font-semibold px-3 py-1 rounded-full text-sm pop-animation';
+                correctAnswersContainer.appendChild(answerEl);
+
+                // Add sound effect here if desired, e.g., correctSound.play();
+
+            } else {
+                // INCORRECT or DUPLICATE
+                answerInput.classList.add('shake-animation');
+                // Add sound effect here if desired, e.g., incorrectSound.play();
+                setTimeout(() => {
+                    answerInput.classList.remove('shake-animation');
+                }, 300);
+            }
+        }
+
+        function showStartScreen() {
+            resultsScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+        }
+
+        // --- Event Listeners ---
+        answerForm.addEventListener('submit', handleAnswerSubmit);
+        retryButton.addEventListener('click', () => startGame(currentCategoryName, currentDescriptors));
+        playAgainButton.addEventListener('click', showStartScreen);
+
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', initializeApp);
+    </script>
+</body>
+</html>
+
