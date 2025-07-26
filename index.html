@@ -11,45 +11,28 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            touch-action: manipulation; /* Prevents double-tap zoom on mobile */
+            touch-action: manipulation;
         }
-        /* Animation for correct answer "pop" */
-        @keyframes pop {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
-        }
-        .pop-animation {
-            animation: pop 0.2s ease-in-out;
-        }
-
-        /* Animation for incorrect answer "shake" */
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
-        }
-        .shake-animation {
-            animation: shake 0.3s ease-in-out;
-        }
-
-        /* Base styles for answer items */
-        .answer-item {
-            transition: all 0.3s ease-out;
-        }
+        @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        .pop-animation { animation: pop 0.2s ease-in-out; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+        .shake-animation { animation: shake 0.3s ease-in-out; }
+        .answer-item { transition: all 0.3s ease-out; }
+        .level-button[disabled] { cursor: not-allowed; }
     </style>
 </head>
 <body class="bg-gray-900 text-white flex items-center justify-center min-h-screen">
 
-    <div id="app-container" class="w-full max-w-md mx-auto p-4">
+    <div id="app-container" class="w-full max-w-2xl mx-auto p-4">
 
-        <!-- Start Screen -->
-        <div id="start-screen" class="text-center">
-            <h1 class="text-4xl font-bold text-red-200 mb-2">Wine Wise</h1>
-            <h2 class="text-2xl font-semibold text-gray-300 mb-8">Descriptor Blitz</h2>
-            <p class="text-gray-400 mb-8">How many descriptors can you name in 30 seconds? Select a category to begin.</p>
-            <div id="category-selection" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <!-- Category buttons will be injected here by JS -->
+        <!-- Level Select Screen -->
+        <div id="level-select-screen">
+            <div class="text-center mb-8">
+                <h1 class="text-4xl font-bold text-red-200 mb-2">Wine Wise</h1>
+                <h2 class="text-2xl font-semibold text-gray-300">Select a Level</h2>
+            </div>
+            <div id="levels-container" class="space-y-6">
+                <!-- Levels will be injected here by JS -->
             </div>
         </div>
 
@@ -57,20 +40,20 @@
         <div id="game-screen" class="hidden flex flex-col h-[80vh]">
             <div class="flex justify-between items-center mb-4">
                 <div>
-                    <div class="text-sm text-red-300">SCORE</div>
-                    <div id="score" class="text-2xl font-bold">0</div>
+                    <div class="text-sm text-red-300">REMAINING</div>
+                    <div id="remaining-counter" class="text-2xl font-bold">0</div>
+                </div>
+                <div class="flex flex-col space-y-2">
+                     <button id="forfeit-button" class="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-1 px-3 rounded-lg transition-colors text-xs">Forfeit</button>
+                     <button id="back-to-levels" class="bg-gray-700 hover:bg-gray-600 text-white font-semibold py-1 px-3 rounded-lg transition-colors text-xs">Levels</button>
                 </div>
                 <div>
                     <div class="text-sm text-red-300">TIME</div>
-                    <div id="timer" class="text-2xl font-bold">30</div>
+                    <div id="timer" class="text-2xl font-bold">45</div>
                 </div>
             </div>
             <h3 id="category-prompt" class="text-xl font-semibold text-center mb-4 bg-gray-800 p-3 rounded-lg"></h3>
-            
-            <div id="correct-answers-container" class="flex-grow bg-gray-800/50 rounded-lg p-4 overflow-y-auto flex flex-wrap content-start gap-2">
-                <!-- Correct answers will appear here -->
-            </div>
-            
+            <div id="correct-answers-container" class="flex-grow bg-gray-800/50 rounded-lg p-4 overflow-y-auto flex flex-wrap content-start gap-2"></div>
             <form id="answer-form" class="mt-4">
                 <input type="text" id="answer-input" placeholder="Type descriptor..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                        class="w-full p-4 bg-gray-700 border-2 border-gray-600 rounded-lg text-lg text-white placeholder-gray-400 focus:outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400">
@@ -79,8 +62,8 @@
 
         <!-- Results Screen -->
         <div id="results-screen" class="hidden text-center">
-            <h2 class="text-3xl font-bold mb-2">Time's Up!</h2>
-            <p class="text-lg mb-4">Your final score is <span id="final-score" class="text-2xl font-bold text-red-300">0</span></p>
+            <h2 id="results-title" class="text-3xl font-bold mb-2">Time's Up!</h2>
+            <p id="results-message" class="text-lg font-semibold my-6"></p>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
                 <div class="bg-gray-800 p-4 rounded-lg">
@@ -95,232 +78,276 @@
 
             <div class="mt-8 flex flex-col sm:flex-row justify-center gap-4">
                 <button id="retry-button" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition-colors w-full sm:w-auto">Retry This Category</button>
-                <button id="play-again-button" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-colors w-full sm:w-auto">Play Another</button>
+                <button id="play-again-button" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-colors w-full sm:w-auto">Back to Levels</button>
             </div>
         </div>
-
     </div>
 
     <script>
         // --- DATABASE ---
-        // Parsed from the user's provided PDF document.
         const wineDatabase = {
-            "FRUIT-WHITE WINE": {
-                "Citrus": ["kaffir lime", "lime", "lime zest", "eureka lemon", "lemon zest", "grapefruit", "grapefruit pith", "yuzu", "kumquat", "orange", "meyer lemon", "tangerine", "clementine", "marmalade"],
-                "Orchard": ["green apple", "asian pear", "pear", "quince", "yellow apple", "red apple", "bruised apple"],
-                "Stone": ["nectarine", "apricot", "peach", "mirabelle plum", "dried apricot"],
-                "Tropical": ["passion fruit", "pineapple", "kiwi", "guava", "lychee", "mango", "persimmon", "melon", "cantaloupe", "charentais", "honeydew", "papaya", "banana", "fruit cup", "fruit cocktail"]
-            },
-            "FRUIT-RED WINE": {
-                "Red Fruits": ["cranberry", "lingonberry", "red currant", "sour cherry", "pomegranate", "raspberry", "strawberry", "red plum", "cherry", "red cherry", "sweet cherry", "kirsch", "cherry liqueur"],
-                "Black Fruits": ["damson plum", "black currant", "cassis", "blackberry", "boysenberry", "black cherry", "mulberry", "bilberry", "huckleberry"],
-                "Blue & Purple Fruits": ["blueberry", "marionberry", "plum", "purple plum"],
-                "Dried Fruit": ["tamarind", "raisin", "fig", "prune", "date"]
-            },
-            "FLORAL & TEA": {
-                "Flowers": ["dandelion", "citrus blossom", "apple blossom", "acacia", "chamomile", "honeysuckle", "lilac", "rose", "violet", "jasmine", "geranium", "potpourri", "dried flowers", "hand soap", "citronella"],
-                "Teas & Tisanes": ["hibiscus", "yerba mate", "rooibos", "black tea", "oolong", "matcha"],
-                "Coffee & Other": ["coffee", "bergamot", "bergamot oil", "chai"]
-            },
-            "SPICE & HERB": {
-                "Soft Herbs (Leafy)": ["cut grass", "parsley", "chervil", "cilantro", "chive", "tarragon", "lemongrass", "verbena"],
-                "Hard Herbs (Resinous)": ["mint", "menthol", "eucalyptus", "bay laurel", "sage", "rosemary", "juniper", "garrigue", "provençal herbs"],
-                "Spices": ["black pepper", "white pepper", "peppercorn", "vanilla", "cinnamon", "clove", "nutmeg", "allspice", "licorice", "anise", "fennel", "dill", "ginger", "saffron", "cardamom", "coriander", "cumin", "curry", "fenugreek", "wasabi", "peppercress", "quinine"]
-            },
-            "VEGETAL": {
-                "Greens": ["salad greens", "arugula", "rhubarb", "bell pepper", "jalapeno", "chipotle", "asparagus", "olive", "green olive", "black olive"],
-                "Other Vegetal": ["tomato", "tomato leaf", "beet", "radicchio", "cabbage", "onion"]
-            },
-            "SAVORY & AGED": {
-                "Animal": ["lanolin", "wool", "leather", "saddle leather", "barn", "stable", "game", "charcuterie", "pastrami", "bacon", "barbecue", "grilled meat"],
-                "Aged / Tertiary": ["tobacco", "cigar box", "forest floor", "underbrush", "soy", "balsamic", "hoisin", "sweet and sour", "chutney", "plum sauce"]
-            },
-            "NUTS, DAIRY, & BREAD": {
-                "Nuts": ["almond", "walnut", "hazelnut", "pecan", "marzipan", "coconut", "cashew", "macadamia", "pistachio"],
-                "Dairy": ["butter", "cream", "yogurt", "crème fraiche"],
-                "Confections": ["marshmallow", "meringue", "panna cotta"],
-                "Cheese": ["parmesan", "rind"],
-                "Bread & Grains": ["yeast", "dough", "brioche", "pie crust", "graham cracker", "lager", "peanut shell", "oatmeal"]
-            },
-            "MINERAL & CHEMICAL": {
-                "Earth & Rocks": ["wet stone", "crushed rock", "gravel", "limestone", "sea shell", "chalk", "slate", "flint", "gunmetal", "volcanic", "iron", "blood", "clay", "baked earth", "concrete", "petrichor", "dust"],
-                "Industrial & Chemical": ["petrol", "kerosene", "gas", "tar", "graphite", "pencil lead", "rubber", "latex", "iodine", "medicinal", "band-aid", "paraffin", "candle wax"]
-            },
-             "WINEMAKING": {
-                "Oak Influence": ["oak", "american oak", "french oak", "coconut", "dill", "vanilla", "brown sugar", "cedar", "cigar box", "baking spices", "clove", "cinnamon", "sandalwood", "nutmeg", "dried herbs"],
-                "Sweeteners": ["caramel", "butterscotch", "honey", "chocolate", "mocha"],
-                "Process-Specific": ["bubblegum", "cotton candy", "volatile acidity", "cork taint", "tca"]
-            }
+            "Citrus": { descriptors: ["lime", "lime zest", "lemon", "lemon zest", "grapefruit", "grapefruit pith", "yuzu", "kumquat", "orange", "meyer lemon", "tangerine", "clementine", "marmalade"] },
+            "Orchard": { descriptors: ["green apple", "asian pear", "pear", "quince", "yellow apple", "red apple"] },
+            "Stone": { descriptors: ["nectarine", "apricot", "white peach","peach", "white plum", "mirabelle plum"] },
+            "Tropical": { descriptors: ["passion fruit", "pineapple", "kiwi", "guava", "lychee", "mango", "persimmon", "melon", "cantaloupe", "charentais", "honeydew", "papaya", "banana", "fruit cocktail"] },
+            "Red Fruits": { descriptors: ["cranberry", "lingonberry", "red currant", "sour cherry", "pomegranate", "raspberry", "strawberry", "red plum", "cherry", "red cherry", "sweet cherry", "kirsch", "cherry liqueur"] },
+            "Black Fruits": { descriptors: ["damson plum", "black currant", "cassis", "blackberry", "boysenberry", "black cherry", "mulberry", "bilberry", "huckleberry"] },
+            "Blue & Purple Fruits": { descriptors: ["blueberry", "marionberry", "plum", "purple plum"] },
+            "Dried Fruit": { descriptors: ["tamarind", "raisin", "fig", "prune", "date"] },
+            "Flowers": { descriptors: ["dandelion", "citrus blossom", "apple blossom", "acacia", "chamomile", "honeysuckle", "lilac", "rose", "violet", "jasmine", "geranium", "potpourri", "dried flowers", "hand soap", "citronella"] },
+            "Teas & Tisanes": { descriptors: ["hibiscus", "yerba mate", "rooibos", "black tea", "oolong", "matcha"] },
+            "Coffee & Other": { descriptors: ["coffee", "bergamot", "bergamot oil", "chai"] },
+            "Soft Herbs (Leafy)": { descriptors: ["cut grass", "parsley", "chervil", "cilantro", "chive", "tarragon", "lemongrass", "verbena"] },
+            "Hard Herbs (Resinous)": { descriptors: ["mint", "menthol", "eucalyptus", "bay laurel", "sage", "rosemary", "juniper", "garrigue", "provençal herbs"] },
+            "Spices": { descriptors: ["black pepper", "white pepper", "peppercorn", "vanilla", "cinnamon", "clove", "nutmeg", "allspice", "licorice", "anise", "fennel", "dill", "ginger", "saffron", "cardamom", "coriander", "cumin", "curry", "fenugreek", "wasabi", "peppercress", "quinine"] },
+            "Greens": { descriptors: ["salad greens", "arugula", "rhubarb", "bell pepper", "jalapeno", "chipotle", "asparagus", "olive", "green olive", "black olive"] },
+            "Other Vegetal": { descriptors: ["tomato", "tomato leaf", "beet", "radicchio", "cabbage", "onion"] },
+            "Animal": { descriptors: ["lanolin", "wool", "leather", "saddle leather", "barn", "stable", "game", "charcuterie", "pastrami", "bacon", "barbecue", "grilled meat"] },
+            "Aged / Tertiary": { descriptors: ["tobacco", "cigar box", "forest floor", "underbrush", "soy", "balsamic", "hoisin", "sweet and sour", "chutney", "plum sauce"] },
+            "Earth & Rocks": { descriptors: ["wet stone", "crushed rock", "gravel", "limestone", "sea shell", "chalk", "slate", "flint", "gunmetal", "volcanic", "iron", "blood", "clay", "baked earth", "concrete", "petrichor", "dust"] },
+            "Industrial & Chemical": { descriptors: ["petrol", "kerosene", "gas", "tar", "graphite", "pencil lead", "rubber", "latex", "iodine", "medicinal", "band-aid", "paraffin", "candle wax"] },
+            "Nuts": { descriptors: ["almond", "walnut", "hazelnut", "pecan", "marzipan", "coconut", "cashew", "macadamia", "pistachio"] },
+            "Dairy": { descriptors: ["butter", "cream", "yogurt", "crème fraiche"] },
+            "Confections": { descriptors: ["marshmallow", "meringue", "panna cotta"] },
+            "Cheese": { descriptors: ["parmesan", "rind"] },
+            "Bread & Grains": { descriptors: ["yeast", "dough", "brioche", "pie crust", "graham cracker", "lager", "peanut shell", "oatmeal"] },
+            "Oak Influence": { descriptors: ["oak", "american oak", "french oak", "coconut", "dill", "vanilla", "brown sugar", "cedar", "cigar box", "baking spices", "clove", "cinnamon", "sandalwood", "nutmeg", "dried herbs"] },
+            "Sweeteners": { descriptors: ["caramel", "butterscotch", "honey", "chocolate", "mocha"] },
+            "Process-Specific": { descriptors: ["bubblegum", "cotton candy", "volatile acidity", "cork taint", "tca"] }
         };
 
+        const levelProgression = [
+            { group: "Level 1: Fruits", name: "Citrus" },
+            { group: "Level 1: Fruits", name: "Orchard" },
+            { group: "Level 1: Fruits", name: "Stone" },
+            { group: "Level 1: Fruits", name: "Tropical" },
+            { group: "Level 1: Fruits", name: "Red Fruits" },
+            { group: "Level 1: Fruits", name: "Black Fruits" },
+            { group: "Level 1: Fruits", name: "Blue & Purple Fruits" },
+            { group: "Level 1: Fruits", name: "Dried Fruit" },
+            { group: "Level 2: Floral & Tea", name: "Flowers" },
+            { group: "Level 2: Floral & Tea", name: "Teas & Tisanes" },
+            { group: "Level 2: Floral & Tea", name: "Coffee & Other" },
+            { group: "Level 3: Spice & Herb", name: "Soft Herbs (Leafy)" },
+            { group: "Level 3: Spice & Herb", name: "Hard Herbs (Resinous)" },
+            { group: "Level 3: Spice & Herb", name: "Spices" },
+            { group: "Level 4: Vegetal", name: "Greens" },
+            { group: "Level 4: Vegetal", name: "Other Vegetal" },
+            { group: "Level 5: Savory & Aged", name: "Animal" },
+            { group: "Level 5: Savory & Aged", name: "Aged / Tertiary" },
+            { group: "Level 6: Mineral & Chemical", name: "Earth & Rocks" },
+            { group: "Level 6: Mineral & Chemical", name: "Industrial & Chemical" },
+            { group: "Level 7: Nuts, Dairy & Bread", name: "Nuts" },
+            { group: "Level 7: Nuts, Dairy & Bread", name: "Dairy" },
+            { group: "Level 7: Nuts, Dairy & Bread", name: "Confections" },
+            { group: "Level 7: Nuts, Dairy & Bread", name: "Cheese" },
+            { group: "Level 7: Nuts, Dairy & Bread", name: "Bread & Grains" },
+            { group: "Level 8: Winemaking", name: "Oak Influence" },
+            { group: "Level 8: Winemaking", name: "Sweeteners" },
+            { group: "Level 8: Winemaking", name: "Process-Specific" },
+        ];
+
         // --- DOM Elements ---
-        const startScreen = document.getElementById('start-screen');
+        const levelSelectScreen = document.getElementById('level-select-screen');
+        const levelsContainer = document.getElementById('levels-container');
         const gameScreen = document.getElementById('game-screen');
         const resultsScreen = document.getElementById('results-screen');
-        const categorySelectionContainer = document.getElementById('category-selection');
-        
-        const scoreEl = document.getElementById('score');
+        const remainingCounterEl = document.getElementById('remaining-counter');
         const timerEl = document.getElementById('timer');
         const categoryPromptEl = document.getElementById('category-prompt');
         const correctAnswersContainer = document.getElementById('correct-answers-container');
         const answerForm = document.getElementById('answer-form');
         const answerInput = document.getElementById('answer-input');
-
-        const finalScoreEl = document.getElementById('final-score');
         const correctListEl = document.getElementById('correct-list');
         const missedListEl = document.getElementById('missed-list');
         const correctCountEl = document.getElementById('correct-count');
         const missedCountEl = document.getElementById('missed-count');
         const retryButton = document.getElementById('retry-button');
         const playAgainButton = document.getElementById('play-again-button');
+        const backToLevelsButton = document.getElementById('back-to-levels');
+        const forfeitButton = document.getElementById('forfeit-button');
+        const resultsTitleEl = document.getElementById('results-title');
+        const resultsMessageEl = document.getElementById('results-message');
 
         // --- Game State ---
-        let score = 0;
-        let timeLeft = 30;
-        let timerInterval;
-        let currentCategoryName = '';
-        let currentDescriptors = [];
+        let timeLeft = 45, timerInterval, currentLevel, gameActive = false;
         let enteredAnswers = new Set();
-        let gameActive = false;
+        let progress = { completedLevels: [] };
+        const PASS_THRESHOLD = 0.5; // 50%
 
         // --- Game Logic ---
-
-        function initializeApp() {
-            // Flatten the database into a list of sub-categories for selection
-            const allSubCategories = [];
-            for (const mainCategory in wineDatabase) {
-                for (const subCategory in wineDatabase[mainCategory]) {
-                    allSubCategories.push({
-                        main: mainCategory,
-                        sub: subCategory,
-                        descriptors: wineDatabase[mainCategory][subCategory]
-                    });
-                }
+        function loadProgress() {
+            const savedProgress = localStorage.getItem('wineWiseProgress');
+            if (savedProgress) {
+                progress = JSON.parse(savedProgress);
             }
-            
-            // Create buttons for each sub-category
-            allSubCategories.forEach(cat => {
+        }
+
+        function saveProgress() {
+            localStorage.setItem('wineWiseProgress', JSON.stringify(progress));
+        }
+
+        function renderLevelSelectScreen() {
+            levelsContainer.innerHTML = '';
+            let currentGroup = '';
+            let levelGroupContainer;
+
+            levelProgression.forEach((level, index) => {
+                if (level.group !== currentGroup) {
+                    currentGroup = level.group;
+                    const groupDiv = document.createElement('div');
+                    groupDiv.innerHTML = `<h3 class="text-2xl font-bold text-red-300/90 mb-3">${currentGroup}</h3>`;
+                    levelGroupContainer = document.createElement('div');
+                    levelGroupContainer.className = "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3";
+                    groupDiv.appendChild(levelGroupContainer);
+                    levelsContainer.appendChild(groupDiv);
+                }
+
+                const isCompleted = progress.completedLevels.includes(level.name);
+                const isUnlocked = index === 0 || progress.completedLevels.includes(levelProgression[index - 1].name);
+
                 const button = document.createElement('button');
-                button.className = "bg-gray-700 hover:bg-red-800/80 text-white font-semibold py-4 px-4 rounded-lg transition-colors duration-200 text-left";
-                button.innerHTML = `<span class="block text-sm text-red-300">${cat.main}</span><span class="block text-lg">${cat.sub}</span>`;
-                button.onclick = () => startGame(cat.sub, cat.descriptors);
-                categorySelectionContainer.appendChild(button);
+                button.className = 'level-button text-left p-3 rounded-lg transition-colors duration-200';
+                button.disabled = !isUnlocked;
+                
+                let statusIcon = '';
+                if(isCompleted) {
+                    button.classList.add('bg-green-600/70', 'hover:bg-green-500/70');
+                    statusIcon = `<span class="text-xs font-bold text-white block">✓ COMPLETED</span>`;
+                } else if (isUnlocked) {
+                    button.classList.add('bg-gray-700', 'hover:bg-red-800/80');
+                    statusIcon = `<span class="text-xs font-bold text-yellow-300 block">▶ PLAY</span>`;
+                } else {
+                    button.classList.add('bg-gray-800/50', 'text-gray-500');
+                    statusIcon = `<span class="text-xs font-bold text-gray-600 block">🔒 LOCKED</span>`;
+                }
+                
+                button.innerHTML = `<span class="font-semibold">${level.name}</span>${statusIcon}`;
+                button.onclick = () => startGame(level);
+                levelGroupContainer.appendChild(button);
             });
         }
+
+        function showScreen(screen) {
+            levelSelectScreen.classList.add('hidden');
+            gameScreen.classList.add('hidden');
+            resultsScreen.classList.add('hidden');
+            screen.classList.remove('hidden');
+        }
         
-        function startGame(categoryName, descriptors) {
-            // Reset state
-            score = 0;
-            timeLeft = 30;
-            currentCategoryName = categoryName;
-            currentDescriptors = descriptors;
+        function startGame(level) {
+            timeLeft = 45;
+            currentLevel = level;
             enteredAnswers.clear();
             gameActive = true;
 
-            // Update UI
-            scoreEl.textContent = score;
+            const totalDescriptors = wineDatabase[currentLevel.name].descriptors.length;
+            remainingCounterEl.textContent = totalDescriptors;
             timerEl.textContent = timeLeft;
-            categoryPromptEl.textContent = categoryName;
+            categoryPromptEl.textContent = currentLevel.name;
             correctAnswersContainer.innerHTML = '';
             answerInput.value = '';
 
-            // Switch screens
-            startScreen.classList.add('hidden');
-            resultsScreen.classList.add('hidden');
-            gameScreen.classList.remove('hidden');
-            
+            showScreen(gameScreen);
             answerInput.focus();
-
-            // Start timer
             timerInterval = setInterval(updateTimer, 1000);
         }
 
         function updateTimer() {
             timeLeft--;
             timerEl.textContent = timeLeft;
-            if (timeLeft <= 0) {
-                endGame();
-            }
+            if (timeLeft <= 0) endGame();
         }
 
-        function endGame() {
+        function endGame(perfectRound = false, forfeited = false) {
             clearInterval(timerInterval);
             gameActive = false;
 
-            // Prepare results
-            finalScoreEl.textContent = score;
+            const totalDescriptors = wineDatabase[currentLevel.name].descriptors.length;
+            const correctAnswersCount = enteredAnswers.size;
+            const pass = !forfeited && (correctAnswersCount / totalDescriptors >= PASS_THRESHOLD);
+
+            if ((pass || perfectRound) && !progress.completedLevels.includes(currentLevel.name)) {
+                progress.completedLevels.push(currentLevel.name);
+                saveProgress();
+            }
+
+            if (forfeited) {
+                resultsTitleEl.textContent = "Round Forfeited";
+                resultsMessageEl.textContent = "Here are all the answers for this level. Keep practicing!";
+                resultsMessageEl.className = "text-lg font-semibold my-6 text-gray-300";
+            } else if (perfectRound) {
+                resultsTitleEl.textContent = "Perfect Round!";
+                resultsMessageEl.textContent = "You have completed this round. Come back to keep your skills sharp!";
+                resultsMessageEl.className = "text-lg font-semibold my-6 text-cyan-400";
+            } else if (pass) {
+                resultsTitleEl.textContent = "Level Passed!";
+                resultsMessageEl.textContent = "You've unlocked the next level!";
+                resultsMessageEl.className = "text-lg font-semibold my-6 text-green-400";
+            } else {
+                resultsTitleEl.textContent = "Time's Up!";
+                resultsMessageEl.textContent = `You need to name at least ${Math.ceil(totalDescriptors * PASS_THRESHOLD)} descriptors to pass. Try again!`;
+                resultsMessageEl.className = "text-lg font-semibold my-6 text-yellow-400";
+            }
+            
             correctListEl.innerHTML = '';
             missedListEl.innerHTML = '';
-
-            const missedDescriptors = currentDescriptors.filter(d => !enteredAnswers.has(d));
-            
-            correctCountEl.textContent = enteredAnswers.size;
+            const missedDescriptors = wineDatabase[currentLevel.name].descriptors.filter(d => !enteredAnswers.has(d));
+            correctCountEl.textContent = correctAnswersCount;
             missedCountEl.textContent = missedDescriptors.length;
+            enteredAnswers.forEach(answer => correctListEl.innerHTML += `<li>${answer}</li>`);
+            missedDescriptors.forEach(descriptor => missedListEl.innerHTML += `<li>${descriptor}</li>`);
 
-            enteredAnswers.forEach(answer => {
-                const li = document.createElement('li');
-                li.textContent = answer;
-                correctListEl.appendChild(li);
-            });
-
-            missedDescriptors.forEach(descriptor => {
-                const li = document.createElement('li');
-                li.textContent = descriptor;
-                missedListEl.appendChild(li);
-            });
-
-            // Switch screens
-            gameScreen.classList.add('hidden');
-            resultsScreen.classList.remove('hidden');
+            showScreen(resultsScreen);
         }
 
         function handleAnswerSubmit(e) {
             e.preventDefault();
             if (!gameActive) return;
-
             const rawAnswer = answerInput.value.trim().toLowerCase();
             if (!rawAnswer) return;
+            answerInput.value = '';
 
-            answerInput.value = ''; // Clear input immediately
-
-            // Check if answer is correct and not already entered
-            if (currentDescriptors.includes(rawAnswer) && !enteredAnswers.has(rawAnswer)) {
-                // CORRECT
-                score++;
+            if (wineDatabase[currentLevel.name].descriptors.includes(rawAnswer) && !enteredAnswers.has(rawAnswer)) {
                 enteredAnswers.add(rawAnswer);
-                scoreEl.textContent = score;
+                
+                const totalDescriptors = wineDatabase[currentLevel.name].descriptors.length;
+                remainingCounterEl.textContent = totalDescriptors - enteredAnswers.size;
 
-                // Create and animate the correct answer element
                 const answerEl = document.createElement('div');
                 answerEl.textContent = rawAnswer;
                 answerEl.className = 'answer-item bg-green-500/80 text-white font-semibold px-3 py-1 rounded-full text-sm pop-animation';
                 correctAnswersContainer.appendChild(answerEl);
 
-                // Add sound effect here if desired, e.g., correctSound.play();
+                if (enteredAnswers.size === totalDescriptors) {
+                    endGame(true);
+                }
 
             } else {
-                // INCORRECT or DUPLICATE
                 answerInput.classList.add('shake-animation');
-                // Add sound effect here if desired, e.g., incorrectSound.play();
-                setTimeout(() => {
-                    answerInput.classList.remove('shake-animation');
-                }, 300);
+                setTimeout(() => answerInput.classList.remove('shake-animation'), 300);
             }
         }
 
-        function showStartScreen() {
-            resultsScreen.classList.add('hidden');
-            startScreen.classList.remove('hidden');
+        function goBackToLevels() {
+            clearInterval(timerInterval);
+            renderLevelSelectScreen();
+            showScreen(levelSelectScreen);
         }
 
         // --- Event Listeners ---
         answerForm.addEventListener('submit', handleAnswerSubmit);
-        retryButton.addEventListener('click', () => startGame(currentCategoryName, currentDescriptors));
-        playAgainButton.addEventListener('click', showStartScreen);
+        retryButton.addEventListener('click', () => startGame(currentLevel));
+        playAgainButton.addEventListener('click', goBackToLevels);
+        backToLevelsButton.addEventListener('click', goBackToLevels);
+        forfeitButton.addEventListener('click', () => endGame(false, true)); // Pass true for forfeited
 
         // --- Initial Load ---
-        document.addEventListener('DOMContentLoaded', initializeApp);
+        document.addEventListener('DOMContentLoaded', () => {
+            loadProgress();
+            renderLevelSelectScreen();
+            showScreen(levelSelectScreen);
+        });
     </script>
 </body>
 </html>
-
